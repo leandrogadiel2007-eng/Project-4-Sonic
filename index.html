@@ -43,7 +43,7 @@ function animator(root,robot){
 const sonicAnim=animator(sonic,false),metalAnim=animator(metal,true);
 
 // Local ZIP import: models stay on the player's device, not in the public repository.
-const panel=document.createElement('div');panel.style.cssText='padding:12px;display:flex;flex-wrap:wrap;gap:12px';host.parentElement.before(panel);panel.style.background='#252033';panel.style.color='#fff';const help=document.createElement('p');help.textContent='Carga los dos ZIP originales. Se guardan en este navegador y se restauran al volver a jugar.';panel.append(help);
+const panel=document.createElement('div');panel.style.cssText='padding:12px;display:flex;flex-wrap:wrap;gap:12px';host.parentElement.before(panel);panel.style.background='#252033';panel.style.color='#fff';const help=document.createElement('p');help.textContent='El juego busca automáticamente los modelos en assets/models/. Si no están publicados, selecciona los ZIP originales aquí; se guardan en este navegador.';panel.append(help);
 const dbPromise=new Promise((resolve,reject)=>{const req=indexedDB.open('sonic-local-models',1);req.onupgradeneeded=()=>req.result.createObjectStore('models');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});dbPromise.catch(()=>{});async function savedModel(label,file){const db=await dbPromise;return new Promise((resolve,reject)=>{const tx=db.transaction('models',file?'readwrite':'readonly');const req=file?tx.objectStore('models').put(file,label):tx.objectStore('models').get(label);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
 
 // Original, rig-specific skeletal animations. Angles in degrees, relative to rest pose.
@@ -101,14 +101,22 @@ for(const [label,root] of [['Sonic',sonic],['Metal Sonic',metal]]){
  let files=unzipSync(new Uint8Array(await file.arrayBuffer()));const nested=Object.keys(files).find(k=>k.toLowerCase().endsWith('.zip'));if(nested)files={...files,...unzipSync(files[nested])};
  const fbx=Object.keys(files).find(k=>k.toLowerCase().endsWith('.fbx'));if(!fbx)throw Error('FBX no encontrado');
  const textures=new Map();for(const [name,data] of Object.entries(files)){if(!/\.(png|jpg|jpeg|webp)$/i.test(name))continue;const url=URL.createObjectURL(new Blob([data],{type:/\.png$/i.test(name)?'image/png':'image/jpeg'}));urls.push(url);textures.set(name.split('/').pop().toLowerCase(),url);}
- const manager=new T.LoadingManager();manager.setURLModifier(url=>textures.get(decodeURIComponent(url).replaceAll('\\','/').split('/').pop().toLowerCase())||url);
+ const manager=new T.LoadingManager();
+ const metalAlbedo=textures.get('enm_metalsonic_body_alb.png');if(metalAlbedo)textures.set('enm_metalsonic_body_abd.png',metalAlbedo);
+ manager.setURLModifier(url=>{if(/^(blob:|data:)/i.test(url))return url;let key=url;try{key=decodeURIComponent(url)}catch{}key=key.replace(/\\/g,'/').split('/').pop().toLowerCase();return textures.get(key)||url});
+ manager.onError=url=>console.warn('Textura no encontrada:',url);
  const data=files[fbx],model=new FBXLoader(manager).parse(data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength),'');
  model.updateMatrixWorld(true);const bounds=new T.Box3().setFromObject(model),size=bounds.getSize(new T.Vector3());if(!Number.isFinite(size.y)||size.y<=0)throw Error('Modelo sin geometría válida');
  const scale=3.4/size.y;model.scale.multiplyScalar(scale);model.updateMatrixWorld(true);const b=new T.Box3().setFromObject(model),center=b.getCenter(new T.Vector3());model.position.sub(new T.Vector3(center.x,b.min.y,center.z));
  const visual=root.getObjectByName('body');for(const child of [...visual.children])child.visible=false;visual.add(model);const previous=loaded.get(root);if(previous){visual.remove(previous.model);previous.urls.forEach(URL.revokeObjectURL);}
- const controller=skeletalController(model,root===metal);loaded.set(root,{model,controller,urls});status.textContent=' Cargado · '+controller.count+' animaciones · '+controller.bones+' huesos';
- }catch(err){urls.forEach(URL.revokeObjectURL);status.textContent=' Error: '+err.message;console.error(err);}};
- input.onchange=async()=>{const file=input.files[0];if(!file)return;await loadModel(file);if(loaded.has(root))savedModel(label,file).catch(()=>{});};savedModel(label).then(file=>{if(file)loadModel(file)}).catch(()=>{});
+ const controller=skeletalController(model,root===metal);loaded.set(root,{model,controller,urls});status.textContent=' Cargado · '+controller.count+' animaciones · '+controller.bones+' huesos';return true;
+ }catch(err){urls.forEach(URL.revokeObjectURL);status.textContent=' Error: '+err.message;console.error(err);return false;}};
+ let manual=false;
+ input.onchange=async()=>{const file=input.files[0];if(!file)return;manual=true;if(await loadModel(file))savedModel(label,file).catch(()=>{});};
+ (async()=>{const asset=root===sonic?'sonic.zip':'metal-sonic.zip';status.textContent=' Buscando modelo…';try{const res=await fetch('./assets/models/'+asset);if(res.ok&&!/text\/html/i.test(res.headers.get('content-type')||'')){const blob=await res.blob();if(!manual&&await loadModel(blob))return;}}catch(err){console.warn('Modelo publicado no disponible:',err)}
+ if(manual)return;try{const file=await savedModel(label);if(file&&!manual){if(await loadModel(file))return;}}catch(err){console.warn(err)}
+ if(!manual&&!loaded.has(root))status.textContent=' Modelo no publicado: selecciona el ZIP.';
+ })();
 }
 let overhead=false;document.getElementById('cinema').onclick=()=>overhead=false;document.getElementById('overhead').onclick=()=>overhead=true;
 const sparks=new T.BufferGeometry(),arr=new Float32Array(240*3);for(let i=0;i<arr.length;i+=3){arr[i]=(Math.random()-.5)*88;arr[i+1]=Math.random()*28;arr[i+2]=(Math.random()-.5)*88}sparks.setAttribute('position',new T.BufferAttribute(arr,3));scene.add(new T.Points(sparks,new T.PointsMaterial({color:0xff4026,size:.055,transparent:true,opacity:.7})));
