@@ -13,7 +13,7 @@
 .arena-hud progress::-webkit-progress-bar{background:#252a3e}
 #p1::-webkit-progress-value{background:linear-gradient(90deg,#1468df,#58e9ff)}
 #p2::-webkit-progress-value{background:linear-gradient(90deg,#b71e38,#ff765b)}
-#p1::-moz-progress-bar{background:#39caff}#p2::-moz-progress-bar{background:#ff5a62}
+#p1::-moz-progress-bar{background:#39caff}#p2::-moz-progress-bar{background:#ff5a62}#heatMeter::-webkit-progress-value{background:linear-gradient(90deg,#eab64b,#ff5039)}#heatMeter::-moz-progress-bar{background:#ff8045}
 .versus{font-weight:900;font-style:italic;font-size:clamp(15px,2.8vw,26px);text-shadow:0 2px 8px #000;color:#fff2aa;align-self:center}
 .arena-toolbar{position:absolute;z-index:7;right:16px;bottom:14px;display:flex;gap:7px;flex-wrap:wrap;justify-content:flex-end;max-width:calc(100% - 32px)}
 .arena-toolbar button{font-size:13px;padding:8px 11px;background:#101b31eb}
@@ -34,7 +34,7 @@ body.arena-expanded{overflow:hidden}
 .arena-toolbar button:not(#fullscreen){display:none}.arena-toolbar #fullscreen{opacity:.65}.arena-toolbar #fullscreen:hover,.arena-toolbar #fullscreen:focus-visible{opacity:1}
 @media(max-width:600px){.arena-hud{inset:9px 8px auto;gap:6px}.arena-hud .fighter-hp{padding:8px 6px}.arena-info{top:77px;font-size:12px}.arena-toolbar{right:8px;bottom:8px;max-width:calc(100% - 16px)}.arena-toolbar button{font-size:11px;padding:7px}.menu-card{padding:15px}.hp-caption{letter-spacing:0}.arena-full-controls{bottom:78px}}
 </style><main><small>CMP1001 · Laboratorio 5 · Oponente adaptativo</small><h1>SONIC <span style="color:#ffcf60">VS</span> METAL SONIC</h1><p>Duelo en tiempo real · Cámara industrial · Memories and Beyond · Prototipo con datos ficticios</p><div class="arena" id="gameArena"><div id="stage" tabindex="0" aria-label="Arena de combate 3D"></div>
-<div class="arena-hud"><div class="fighter-hp"><div class="hp-caption"><span>SONIC</span><span id="hp1">100 HP</span></div><progress id="p1" max="100" value="100" aria-label="Vida de Sonic"></progress></div><span class="versus">VS</span><div class="fighter-hp enemy"><div class="hp-caption"><span id="hp2">100 HP</span><span>METAL SONIC</span></div><progress id="p2" max="100" value="100" aria-label="Vida de Metal Sonic"></progress></div></div>
+<div class="arena-hud"><div class="fighter-hp"><div class="hp-caption"><span>SONIC</span><span id="hp1">100 HP</span></div><progress id="p1" max="100" value="100" aria-label="Vida de Sonic"></progress></div><span class="versus">VS</span><div class="fighter-hp enemy"><div class="hp-caption"><span id="hp2">100 HP</span><span>METAL SONIC</span></div><progress id="p2" max="100" value="100" aria-label="Vida de Metal Sonic"></progress><div id="heatHUD" style="display:flex;align-items:center;gap:6px;margin-top:6px;font-size:11px;color:#ffba82"><span id="heatText">TEMP 0%</span><progress id="heatMeter" max="100" value="0" aria-label="Temperatura de Metal Sonic" style="flex:1;height:6px;margin:0"></progress></div></div></div>
 <div class="arena-info" id="arenaInfo">Metal Sonic: preparado</div>
 <div class="arena-menu" id="arenaMenu"><div class="menu-card"><small>MEMORIES AND BEYOND · ADAPTIVE AI</small><h2 id="menuTitle">SONIC VS METAL SONIC</h2><p id="menuDescription">Prepárate para el duelo. El combate comenzará cuando pulses Jugar.</p><button id="playGame" disabled>JUGAR</button><small>WASD · Shift Boost · Espacio salto · J K L U I · 1–9 ataques · V cámara · R reiniciar</small><div id="arenaNote" role="status">Cargando escenario 3D…</div></div></div>
 <div class="arena-full-controls" id="fullActions" aria-label="Ataques"></div>
@@ -139,7 +139,10 @@ function skeletalController(model,isMetal){
  const tucked=pose(42,-35,-35,-72,-72,75,75,105,105,72,-24);
  const punchL=pose(15,-72,30,-28,24,12,70,22,35,45,-4),punchR=pose(15,30,-72,24,-28,70,12,35,22,45,-4);
  const defend=pose(14,-58,-58,-22,-22,95,95,34,34,42,-5);
+ const tired=pose(30,-8,-8,-12,-12,8,8,18,18,77,22);
+ const tired2=pose(35,-5,-12,-14,-10,12,8,22,16,78,27);
  const poses={
+ overheat:[1.6,[tired,tired2,tired,pose(28,-12,-8,-10,-12,10,12,16,19,76,20),tired]],
  overdrive:[1.65,[flight,pose(35,45,45,20,20,8,8,12,12,28,-10),pose(42,42,42,25,25,5,5,14,14,25,-12),flight]],
  plasma:[1.7,[flight,pose(-12,-48,-48,-10,-10,50,50,15,15,25,0),pose(-8,18,18,-8,-8,15,15,14,14,30,0),flight]],
  spark:[1.65,[flight,pose(0,-25,-25,-15,-15,10,10,18,18,8,0),pose(-8,-10,-10,-12,-12,12,12,20,20,5,0),flight]],
@@ -164,7 +167,7 @@ function skeletalController(model,isMetal){
  const mixer=new T.AnimationMixer(model),actions={};for(const [name,[duration,frames]] of Object.entries(poses)){
  const times=frames.map((_,i)=>duration*i/(frames.length-1)),tracks=[];
  for(const [n,b] of axes){const values=[];for(const p of frames){const angles=p[n]||[0,0,0],v=b.rest.clone();for(const [i,axis] of [b.x,b.y,b.z].entries())v.multiply(q.setFromAxisAngle(axis,angles[i]*rad));v.normalize().toArray(values,values.length)}tracks.push(new T.QuaternionKeyframeTrack(bones.get(n).uuid+'.quaternion',times,values))}
- if(!tracks.length)continue;const action=mixer.clipAction(new T.AnimationClip(name,duration,tracks));if(!['idle','run','hover','chase'].includes(name)){action.setLoop(T.LoopOnce,1);action.clampWhenFinished=true}actions[name]=action;
+ if(!tracks.length)continue;const action=mixer.clipAction(new T.AnimationClip(name,duration,tracks));if(!['idle','run','hover','chase','overheat'].includes(name)){action.setLoop(T.LoopOnce,1);action.clampWhenFinished=true}actions[name]=action;
  }
  let active=null,token=null;return {mixer,count:Object.keys(actions).length,bones:axes.size,play(name,event){const next=actions[name]||actions.idle;if(!next||next===active&&event===token)return;const previous=active;next.reset().setEffectiveWeight(1).setEffectiveTimeScale(1).play();if(previous&&previous!==next)previous.crossFadeTo(next,.09,false);active=next;token=event;},update(dt){mixer.update(dt)}};
 }
@@ -344,17 +347,31 @@ const bindings={j:'homing',k:'spin',l:'boost',u:'guard',i:'dodge','1':'combo','2
 window.addEventListener('keydown',e=>{if(e.repeat||e.ctrlKey||e.altKey||e.metaKey||['INPUT','SELECT','TEXTAREA','BUTTON'].includes(e.target.tagName))return;const key=bindings[e.key.toLowerCase()];if(key){e.preventDefault();document.querySelector('[data-move="'+key+'"]')?.click()}});
 
 // Independent real-time AI: no access to future player input. Reaction is delayed and moves have windup/recovery.
-const rival={v:new T.Vector3(),aim:new T.Vector3(),heading:-Math.PI/2,action:null,time:0,cool:3.0,decision:0,observed:-1,reaction:0,serial:0,side:1,last:'',guard:false,hit:false,projectiles:[],hurtUntil:0};
-const rivalMoves={overdrive:{name:'Maximum Overdrive',duration:1.65,wind:.75,hit:1.25,damage:18},plasma:{name:'Plasma Pulse',duration:1.7,wind:.85,hit:1.1,damage:12},spark:{name:'Ring Spark Field',duration:1.65,wind:.85,hit:1.35,damage:15},melee:{name:'Combo metálico',duration:1.35,wind:.60,hit:1.05,damage:10},shield:{name:'Black Shield',duration:.85,wind:.08,hit:.75,damage:0},evade:{name:'Esquiva',duration:.55,wind:.08,hit:.42,damage:0}};
+const rival={v:new T.Vector3(),aim:new T.Vector3(),heading:-Math.PI/2,action:null,time:0,cool:3.0,decision:0,observed:-1,reaction:0,serial:0,side:1,last:'',guard:false,hit:false,projectiles:[],hurtUntil:0,heat:0,overheat:0,defenseCool:0,defenseTried:false,blockFlash:0};
+const rivalMoves={overdrive:{name:'Maximum Overdrive',duration:1.65,wind:.75,hit:1.25,damage:18},plasma:{name:'Plasma Pulse',duration:1.7,wind:.85,hit:1.1,damage:12},spark:{name:'Ring Spark Field',duration:1.65,wind:.85,hit:1.35,damage:15},melee:{name:'Combo metálico',duration:1.35,wind:.60,hit:1.05,damage:10},shield:{name:'Black Shield',duration:1.05,wind:.04,hit:.96,damage:0},evade:{name:'Esquiva',duration:.55,wind:.08,hit:.42,damage:0}};
 const rivalHUD=document.getElementById('metalState'),arenaInfo=document.getElementById('arenaInfo');
+const heatHUD=document.getElementById('heatHUD'),heatMeter=document.getElementById('heatMeter'),heatText=document.getElementById('heatText');
+const HEAT_COST={overdrive:36,plasma:32,spark:38,melee:26};
+const COOLING_TIME=5;
+function heatAfterAttack(heat,kind){return Math.min(100,heat+(HEAT_COST[kind]||0));}
+function showHeat(live){heatHUD.style.display=live?'flex':'none';heatMeter.value=rival.heat;heatText.textContent=rival.overheat>0?'ENFRIANDO '+rival.overheat.toFixed(1)+' s':'TEMP '+Math.round(rival.heat)+'%';}
+
 const rivalCharge=mesh(new T.SphereGeometry(1.75,24,16),fxMaterial(0xffc23e,.25));
 const rivalShield=mesh(new T.SphereGeometry(2.05,24,16),new T.MeshBasicMaterial({color:0x4d2370,transparent:true,opacity:.6,wireframe:true,depthWrite:false}));
 const rivalSpark=mesh(new T.TorusGeometry(1,.14,8,64),fxMaterial(0xfff276,.85));rivalSpark.rotation.x=-Math.PI/2;
 const plasmaPool=Array.from({length:5},()=>{const o=mesh(new T.SphereGeometry(.5,16,12),fxMaterial(0xff4f36,.95));o.visible=false;return {o,v:new T.Vector3(),life:0}});
+const heatGlow=mesh(new T.SphereGeometry(1.3,20,12),fxMaterial(0xff5419,.18));heatGlow.visible=false;
+const heatSteam=Array.from({length:12},(_,i)=>{const puff=mesh(new T.SphereGeometry(.34,10,8),new T.MeshBasicMaterial({color:0xc2c9d2,transparent:true,opacity:.32,depthWrite:false}));puff.visible=false;return puff;});
+const heatSparks=Array.from({length:6},()=>{const o=mesh(new T.SphereGeometry(.065,8,6),fxMaterial(0xffbd43,.8));o.visible=false;return o;});
+function clearHeatFX(){heatGlow.visible=false;heatSteam.forEach(o=>o.visible=false);heatSparks.forEach(o=>o.visible=false);}
+function coolingFX(t){heatGlow.visible=true;heatGlow.position.copy(metal.position).add(new T.Vector3(0,1.55,0));heatGlow.scale.setScalar(.9+.15*Math.sin(t*8));heatGlow.material.opacity=.10+.13*rival.heat/100;
+ heatSteam.forEach((o,i)=>{const p=(t*.58+i/heatSteam.length)%1,angle=i*2.399;o.visible=true;o.position.copy(metal.position).add(new T.Vector3(Math.cos(angle)*(.38+p*.7),1.9+p*2.7,Math.sin(angle)*(.38+p*.7)));o.scale.setScalar(.55+1.4*p);o.material.opacity=.27*(1-p);});
+ heatSparks.forEach((o,i)=>{const p=(t*1.4+i/6)%1,angle=i*2.399;o.visible=p<.62;o.position.copy(metal.position).add(new T.Vector3(Math.cos(angle)*(.7+p*.9),1.3+Math.sin(p*Math.PI)*1.1,Math.sin(angle)*(.7+p*.9)));o.material.opacity=1-p;});
+}
 rivalCharge.visible=rivalShield.visible=rivalSpark.visible=false;
-function resetRival(){rival.v.set(0,0,0);rival.action=null;rival.time=0;rival.cool=3.0;rival.decision=0;rival.observed=-1;rival.reaction=0;rival.guard=false;rival.hit=false;rival.last='';rival.heading=-Math.PI/2;rival.hurtUntil=0;plasmaPool.forEach(p=>{p.life=0;p.o.visible=false});}
+function resetRival(){rival.v.set(0,0,0);rival.action=null;rival.time=0;rival.cool=3.0;rival.decision=0;rival.observed=-1;rival.reaction=0;rival.guard=false;rival.hit=false;rival.last='';rival.heading=-Math.PI/2;rival.hurtUntil=0;rival.heat=0;rival.overheat=0;rival.defenseCool=0;rival.defenseTried=false;rival.blockFlash=0;clearHeatFX();showHeat(window.arenaState().mode==='live');plasmaPool.forEach(p=>{p.life=0;p.o.visible=false});}
 document.getElementById('reset').addEventListener('click',resetRival);
-function startRivalAction(kind,target){rival.action=kind;rival.time=0;rival.serial++;rival.hit=false;rival.last=kind;rival.aim.copy(target);rival.side=Math.random()<.5?-1:1;}
+function startRivalAction(kind,target){if(rival.overheat>0)return;rival.heat=heatAfterAttack(rival.heat,kind);if(kind==='shield'||kind==='evade')rival.defenseCool=2.0;if(kind==='shield'){plasmaPool.forEach(p=>{p.life=0;p.o.visible=false});}rival.action=kind;rival.time=0;rival.serial++;rival.hit=false;rival.last=kind;rival.aim.copy(target);rival.side=Math.random()<.5?-1:1;}
 function chooseRival(dist,s,fast,air){
  if(dist<4.7)return Math.random()<.55?'melee':'spark';
  if(dist>13)return Math.random()<.65?'overdrive':'plasma';
@@ -364,15 +381,26 @@ function chooseRival(dist,s,fast,air){
 }
 function updateRival(dt,s,target,playerVelocity,acting,phase,airborne){
  const live=s.mode==='live',active=live&&s.started&&s.hp>0&&s.metal>0;
- rivalCharge.visible=rivalShield.visible=rivalSpark.visible=false;rival.guard=false;
+ rivalCharge.visible=rivalShield.visible=rivalSpark.visible=false;rival.guard=false;clearHeatFX();showHeat(live);
  if(!active){rival.v.set(0,0,0);rival.action=null;for(const p of plasmaPool){p.life=0;p.o.visible=false;}rivalHUD.textContent='Metal Sonic: '+(live?'preparado':'modo de pruebas');return 'hover';}
  const flat=new T.Vector3(target.x,0,target.z),delta=flat.clone().sub(enemyPos),dist=delta.length(),dir=delta.clone().normalize(),side=new T.Vector3(-dir.z,0,dir.x);
- rival.cool=Math.max(0,rival.cool-dt);rival.reaction=Math.max(0,rival.reaction-dt);
- if(rival.observed!==s.turn){rival.observed=s.turn;rival.reaction=.35+Math.random()*.20;}
+ rival.cool=Math.max(0,rival.cool-dt);rival.reaction=Math.max(0,rival.reaction-dt);rival.defenseCool=Math.max(0,rival.defenseCool-dt);rival.blockFlash=Math.max(0,rival.blockFlash-dt);
+ // Overheat is a mandatory recovery window: no attacks, shields or evasions.
+ if(rival.overheat>0){
+  rival.overheat=Math.max(0,rival.overheat-dt);rival.heat=100*rival.overheat/COOLING_TIME;
+  rival.v.set(0,0,0);rival.action=null;metal.position.copy(enemyPos);metal.position.y=.06;
+  metal.rotation.y=rival.heading;plasmaPool.forEach(p=>{p.life=0;p.o.visible=false});
+  coolingFX(performance.now()/1000);showHeat(live);
+  rivalHUD.textContent='Metal Sonic: SOBRECALENTADO · '+rival.overheat.toFixed(1)+' s · ¡Ataca!';
+  if(rival.overheat<=0){rival.heat=0;rival.cool=1.5;rival.defenseCool=1.5;}
+  return 'overheat';
+ }
+ if(rival.observed!==s.turn){rival.observed=s.turn;rival.reaction=.16+Math.random()*.12;rival.defenseTried=false;}
  // Respond to observed attacks only, with a finite reaction delay and chance of error.
- if(!rival.action&&acting&&rival.reaction===0&&rival.cool<.30&&phase<.70&&s.last!=='guard'&&s.last!=='dodge'){
+ if(!rival.action&&acting&&rival.reaction===0&&!rival.defenseTried&&rival.defenseCool<=0&&phase<.55&&s.last!=='guard'&&s.last!=='dodge'){
  const ranged=['boom','shot','cross'].includes(s.last),known=s.prediction===s.last;
- if(Math.random()< (known?.76:.38)*dt*9)startRivalAction(ranged||known?'shield':'evade',flat);
+ rival.defenseTried=true;
+ if(Math.random()<(known?.80:.48))startRivalAction(ranged||known||Math.random()<.7?'shield':'evade',flat);
  }
  if(!rival.action&&rival.cool<=0){startRivalAction(chooseRival(dist,s,playerVelocity.length()>16,airborne),flat.clone().addScaledVector(playerVelocity,.22));}
  let desired=new T.Vector3(),state='hover',height=.48;
@@ -393,7 +421,7 @@ function updateRival(dt,s,target,playerVelocity,acting,phase,airborne){
  if(dist<range&&Math.abs(target.y-height)<(kind==='spark'?3.5:2.6)){rival.hit=true;deal(c.damage,c.name);}
  }
  rivalHUD.textContent='Metal Sonic: '+c.name+(attacking?'':' · preparando');
- if(rival.time>=c.duration){rival.action=null;rival.cool=2.2+Math.random()*1.0+(kind==='overdrive'?.5:0);}
+ if(rival.time>=c.duration){rival.action=null;rival.cool=2.2+Math.random()*1.0+(kind==='overdrive'?.5:0);if(HEAT_COST[kind]&&rival.heat>=100){rival.overheat=COOLING_TIME;rival.v.set(0,0,0);plasmaPool.forEach(p=>{p.life=0;p.o.visible=false});}}
  }else{
  rival.decision-=dt;if(rival.decision<=0){rival.decision=.45+Math.random()*.4;if(Math.random()<.28)rival.side*=-1;}
  const lead=flat.clone().addScaledVector(playerVelocity,Math.min(.36,dist/70)).sub(enemyPos).normalize();
@@ -407,7 +435,7 @@ function updateRival(dt,s,target,playerVelocity,acting,phase,airborne){
  metal.position.copy(enemyPos);metal.position.y=height+Math.sin(performance.now()*.006)*.09;
  const headingTarget=Math.atan2(target.x-enemyPos.x,target.z-enemyPos.z);rival.heading+=Math.atan2(Math.sin(headingTarget-rival.heading),Math.cos(headingTarget-rival.heading))*(1-Math.exp(-dt*12));metal.rotation.y=rival.heading;
  rivalCharge.visible=rival.action==='overdrive';rivalCharge.position.copy(metal.position).add(new T.Vector3(0,1.5,0));rivalCharge.scale.setScalar(1+.25*Math.sin(rival.time*19));
- rivalShield.visible=rival.guard;rivalShield.position.copy(metal.position).add(new T.Vector3(0,1.5,0));
+ rivalShield.visible=rival.guard;rivalShield.position.copy(metal.position).add(new T.Vector3(0,1.5,0));rivalShield.scale.setScalar(1+rival.blockFlash*.6);rivalShield.material.color.set(rival.blockFlash>0?0xb88bff:0x4d2370);
  rivalSpark.visible=rival.action==='spark'&&rival.time>.4;rivalSpark.position.copy(metal.position);rivalSpark.position.y=.4;rivalSpark.scale.setScalar(1+5*Math.min(1,rival.time/1.35));
  for(const projectile of plasmaPool){if(projectile.life<=0)continue;projectile.life-=dt;const before=projectile.o.position.clone();projectile.o.position.addScaledVector(projectile.v,dt);const center=target.clone().add(new T.Vector3(0,1.4,0));const line=projectile.o.position.clone().sub(before),u=T.MathUtils.clamp(center.clone().sub(before).dot(line)/Math.max(.0001,line.lengthSq()),0,1);
  if(before.addScaledVector(line,u).distanceTo(center)<1.25){const protectedNow=acting&&s.last==='guard';const dodging=acting&&s.last==='dodge'&&phase>.12&&phase<.86;window.liveCombat.hurt(dodging?0:protectedNow?3:12,'Plasma Pulse');projectile.life=0;}
@@ -471,15 +499,16 @@ const liveMetalState=updateRival(dt,s,sonic.position,velocity,acting,phase,airbo
 if(s.mode==='live'&&s.started&&s.pending&&!s.pending.done&&s.hp>0&&s.metal>0){
  const gap=sonic.position.distanceTo(metal.position),ranged=['boom','shot','cross'].includes(s.last),defensive=['guard','dodge'].includes(s.last),hitPhase=s.last==='stomp'?.73:ranged?.60:.43;
  if(defensive&&phase>=.5)window.liveCombat.strike(0,'Maniobra defensiva');
- else if(phase>=hitPhase&&(gap<(ranged?28:s.last==='cyloop'?7:4.6))){window.liveCombat.strike(rival.guard?.12:liveMetalState==='evade'?.35:1,rival.guard?'Black Shield':liveMetalState==='evade'?'Esquiva parcial':'Impacto');}
+ else if(phase>=hitPhase&&(gap<(ranged?28:s.last==='cyloop'?7:4.6))){if(rival.guard){rival.blockFlash=.3;window.liveCombat.strike(0,'Black Shield · bloqueo completo, sin daño reflejado');}else window.liveCombat.strike(liveMetalState==='evade'?.35:1,liveMetalState==='evade'?'Esquiva parcial':liveMetalState==='overheat'?'Impacto durante enfriamiento':'Impacto');}
  else if(phase>=.98)window.liveCombat.strike(0,'Fuera de alcance');
 }
 sonic.visible=s.hp>0||acting||s.turn>0;metal.visible=s.metal>0||acting||s.turn>0;
 const sState=acting?s.last:s.hp<=0?'defeat':airborne?(jumpTime<.25?'jump':jumpV>0?'air':'fall'):landTime>0?'land':!inputMoving&&speed>3?'brake':speed>17?'sprint':speed>5?'run':moving?'walk':'idle',mState=s.metal<=0?'defeat':s.mode==='live'?liveMetalState:acting?enemyState:pursuing?'chase':'hover';
 const sc=loaded.get(sonic)?.controller,mc=loaded.get(metal)?.controller;
-sonicAnim.play(sc?'idle':airborne?'homing':advanced&&acting?'boost':['walk','sprint','brake'].includes(sState)?'run':sState);metalAnim.play(mc?'idle':['chase','overdrive'].includes(mState)?'boost':mState==='shield'?'guard':['intercept','area','plasma','spark','melee'].includes(mState)?'counter':mState==='evade'?'dodge':mState);
+sonicAnim.play(sc?'idle':airborne?'homing':advanced&&acting?'boost':['walk','sprint','brake'].includes(sState)?'run':sState);metalAnim.play(mc?'idle':['chase','overdrive'].includes(mState)?'boost':mState==='shield'?'guard':['intercept','area','plasma','spark','melee'].includes(mState)?'counter':mState==='evade'?'dodge':mState==='overheat'?'idle':mState);
 sonicAnim.update(dt);metalAnim.update(dt);
 if(sc){sc.play(sState,acting||sState==='defeat'?s.turn:airborne||sState==='land'?jumpToken:0,['walk','run','sprint'].includes(sState)?T.MathUtils.clamp(speed/(sState==='walk'?4:sState==='run'?12:23),.65,1.65):1);sc.update(dt)}if(mc){mc.play(mState,s.mode==='live'?rival.action?rival.serial:0:acting||mState==='defeat'?s.turn:0);mc.update(dt)}
+const metalBody=metal.getObjectByName('body');if(mState==='overheat'){metalBody.rotation.x=.18+.035*Math.sin(t*.012);metalBody.rotation.z=.025*Math.sin(t*.028);}else if(mc){metalBody.rotation.x=0;metalBody.rotation.z=0;}
 // Spin and homing use a rotating visual root, independent of the skeleton.
 if(acting&&s.last==='spin')sonic.getObjectByName('body').rotation.x=phase*Math.PI*6;
 else if(sc)sonic.getObjectByName('body').rotation.x=airborne&&jumpTime<.2?-.12:0;sonic.getObjectByName('body').rotation.z=acting||airborne?0:bank;
