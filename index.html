@@ -365,8 +365,8 @@ const rival={v:new T.Vector3(),aim:new T.Vector3(),heading:-Math.PI/2,action:nul
 const rivalMoves={overdrive:{name:'Maximum Overdrive',duration:1.65,wind:.75,hit:1.25,damage:18},plasma:{name:'Plasma Pulse',duration:1.7,wind:.85,hit:1.1,damage:12},spark:{name:'Ring Spark Field',duration:1.65,wind:.85,hit:1.35,damage:15},melee:{name:'Combo metálico',duration:1.35,wind:.60,hit:1.05,damage:10},shield:{name:'Black Shield',duration:1.05,wind:.04,hit:.96,damage:0},evade:{name:'Esquiva',duration:.55,wind:.08,hit:.42,damage:0}};
 const rivalHUD=document.getElementById('metalState'),arenaInfo=document.getElementById('arenaInfo');
 const heatHUD=document.getElementById('heatHUD'),heatMeter=document.getElementById('heatMeter'),heatText=document.getElementById('heatText');
-const HEAT_COST={overdrive:36,plasma:32,spark:38,melee:26};
-const COOLING_TIME=5;
+const HEAT_COST={overdrive:18,plasma:16,spark:19,melee:13};
+const COOLING_TIME=1.5;
 function heatAfterAttack(heat,kind){return Math.min(100,heat+(HEAT_COST[kind]||0));}
 function showHeat(live){heatHUD.style.display=live?'flex':'none';heatMeter.value=rival.heat;heatText.textContent=rival.overheat>0?'ENFRIANDO '+rival.overheat.toFixed(1)+' s':'TEMP '+Math.round(rival.heat)+'%';}
 
