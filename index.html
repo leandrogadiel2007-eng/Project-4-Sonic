@@ -1,6 +1,6 @@
 <!doctype html><html lang="es"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Sonic vs Metal Sonic | Adaptive AI</title><style>
 *{box-sizing:border-box}body{margin:0;background:#080e21;color:#eef6ff;font:16px system-ui}main{max-width:1440px;margin:auto;padding:22px}h1{font-style:italic;color:#68dfff;margin:8px 0}small{color:#a8b9d9}.arena{position:relative;overflow:hidden;border:1px solid #4267a0;border-radius:20px;background:linear-gradient(#111a43,#30235c 70%,#12223b 70%);height:clamp(440px,65vw,760px)}canvas{width:100%;height:100%}.hud,.controls,.grid{display:flex;gap:12px;flex-wrap:wrap}.hud>div,.grid>section{flex:1;min-width:240px;background:#15213b;padding:16px;border-radius:14px}progress{width:100%;accent-color:#39caff;height:18px}button,select{background:#203d70;color:white;border:1px solid #5378b2;border-radius:10px;padding:12px;font:inherit;cursor:pointer}button:hover{background:#315a9c}button:disabled{opacity:.4;cursor:default}.controls{margin:16px 0}h2{font-size:17px;color:#83dfff;margin:0 0 10px}p{line-height:1.5}#error{color:#ff9a9a}#log{max-height:140px;overflow:auto} .bar{height:8px;background:#30405b;border-radius:5px;margin:5px 0 12px}.bar i{display:block;height:100%;background:#38bdf8;border-radius:5px}section{margin-top:10px}#status{font-weight:bold;color:#ffdc76}
-</style><main><small>CMP1001 · Laboratorio 5 · Oponente adaptativo</small><h1>SONIC <span style="color:#ffcf60">VS</span> METAL SONIC</h1><p>Duelo por turnos · Cámara industrial · Memories and Beyond · Prototipo con datos ficticios</p><div class="hud"><div>SONIC <span id="hp1"></span><progress id="p1" max="100"></progress></div><div>METAL SONIC <span id="hp2"></span><progress id="p2" max="100"></progress></div></div><div class="arena"><div id="stage" style="width:100%;height:100%"></div><div style="position:absolute;top:12px;right:12px;display:flex;gap:8px"><button id="cinema">Cámara de combate</button><button id="overhead">Vista superior</button></div></div><p id="status"></p><p><strong>WASD:</strong> W avanzar · A izquierda · S retroceder · D derecha. Mantén pulsada una tecla para moverte por la arena. J: Homing Attack · K: Spin Dash · L: Boost · U: Defensa · I: Esquivar.</p><h2>1. Entrada — elige tu movimiento</h2><div class="controls" id="actions"></div><div class="controls"><select id="test"><option value="">Sin movimiento (entrada inválida)</option><option value="homing">Homing Attack</option><option value="spin">Spin Dash</option><option value="boost">Boost</option><option value="guard">Defensa</option><option value="dodge">Esquivar</option></select><button id="try">Probar entrada</button><button id="reset">Reiniciar combate y aprendizaje</button></div><p id="error" role="alert"></p><div class="grid"><section><h2>2. Sugerencia</h2><p id="suggest"></p><h2>3. Por qué</h2><p id="why"></p><h2>4. Límite y quién decide</h2><p>Metal Sonic estima tu próximo movimiento a partir de frecuencias. No conoce tu intención ni garantiza acertar. Tú decides qué acción ejecutar y puedes ignorar la sugerencia.</p></section><section><h2>Memoria de Metal Sonic</h2><div id="memory"></div><small>Frecuencias observadas, no probabilidades calibradas.</small></section></div><section><h2>Historial del combate</h2><div id="log"></div></section></main><script>
+</style><main><small>CMP1001 · Laboratorio 5 · Oponente adaptativo</small><h1>SONIC <span style="color:#ffcf60">VS</span> METAL SONIC</h1><p>Duelo por turnos · Cámara industrial · Memories and Beyond · Prototipo con datos ficticios</p><div class="hud"><div>SONIC <span id="hp1"></span><progress id="p1" max="100"></progress></div><div>METAL SONIC <span id="hp2"></span><progress id="p2" max="100"></progress></div></div><div class="arena"><div id="stage" style="width:100%;height:100%"></div><div style="position:absolute;top:12px;right:12px;display:flex;gap:8px"><button id="cinema">Cámara de combate</button><button id="overhead">Vista superior</button><button id="jump" aria-label="Saltar (Espacio)">Saltar ⤒</button></div></div><p id="status"></p><p><strong>WASD:</strong> W avanzar · A izquierda · S retroceder · D derecha. Mantén pulsada una tecla para moverte por la arena. Espacio: Saltar · J: Homing Attack · K: Spin Dash · L: Boost · U: Defensa · I: Esquivar.</p><h2>1. Entrada — elige tu movimiento</h2><div class="controls" id="actions"></div><div class="controls"><select id="test"><option value="">Sin movimiento (entrada inválida)</option><option value="homing">Homing Attack</option><option value="spin">Spin Dash</option><option value="boost">Boost</option><option value="guard">Defensa</option><option value="dodge">Esquivar</option></select><button id="try">Probar entrada</button><button id="reset">Reiniciar combate y aprendizaje</button></div><p id="error" role="alert"></p><div class="grid"><section><h2>2. Sugerencia</h2><p id="suggest"></p><h2>3. Por qué</h2><p id="why"></p><h2>4. Límite y quién decide</h2><p>Metal Sonic estima tu próximo movimiento a partir de frecuencias. No conoce tu intención ni garantiza acertar. Tú decides qué acción ejecutar y puedes ignorar la sugerencia.</p></section><section><h2>Memoria de Metal Sonic</h2><div id="memory"></div><small>Frecuencias observadas, no probabilidades calibradas.</small></section></div><section><h2>Historial del combate</h2><div id="log"></div></section></main><script>
 const names={homing:'Homing Attack',spin:'Spin Dash',boost:'Boost',guard:'Defensa',dodge:'Esquivar'},keys=Object.keys(names),counter={homing:'Esquiva y contraataque',spin:'Black Shield',boost:'Intercepción',guard:'Rompeguardia',dodge:'Ataque de área'},advice={homing:'spin',spin:'boost',boost:'homing',guard:'dodge',dodge:'guard'};
 let counts,history,hp,metal,turn,flash=0,last='',prediction=null;const $=id=>document.getElementById(id);
 function predict(){return turn?keys.reduce((a,b)=>counts[b]>counts[a]?b:a):null}
@@ -94,6 +94,81 @@ function skeletalController(model,isMetal){
  let active=null,token=null;return {mixer,count:Object.keys(actions).length,bones:axes.size,play(name,event){const next=actions[name]||actions.idle;if(!next||next===active&&event===token)return;const previous=active;next.reset().setEffectiveWeight(1).setEffectiveTimeScale(1).play();if(previous&&previous!==next)previous.crossFadeTo(next,.09,false);active=next;token=event;},update(dt){mixer.update(dt)}};
 }
 
+
+// Sonic-specific rig: solve limb directions in character space, not arbitrary FBX Euler axes.
+function fixSonicFace(model){
+ let removed=0;
+ model.traverse(o=>{
+ if(!o.isSkinnedMesh)return;
+ const g=o.geometry,si=g.getAttribute('skinIndex'),sw=g.getAttribute('skinWeight');if(!si||!sw)return;
+ const lids=new Set();o.skeleton.bones.forEach((b,i)=>{if(/eyelid/i.test(b.name))lids.add(i)});
+ if(!lids.size)return;
+ const weight=i=>{let w=0;for(let j=0;j<4;j++){const idx=si.array[i*4+j];if(lids.has(idx))w+=sw.array[i*4+j]}return w};
+ const ix=g.index?.array,groups=g.groups.length?g.groups:[{start:0,count:ix?ix.length:si.count,materialIndex:0}],out=[],newGroups=[];
+ for(const group of groups){const start=out.length,mat=Array.isArray(o.material)?o.material[group.materialIndex]:o.material;
+ const isEye=/eye[lr]$/i.test(mat?.name||'');
+ for(let j=group.start;j+2<group.start+group.count;j+=3){const tri=[ix?ix[j]:j,ix?ix[j+1]:j+1,ix?ix[j+2]:j+2];if(!isEye&&tri.every(i=>weight(i)>.45)){removed++;continue;}out.push(...tri)}
+ if(out.length>start)newGroups.push({start,count:out.length-start,materialIndex:group.materialIndex});}
+ if(out.length&&removed){g.setIndex(out);g.clearGroups();for(const group of newGroups)g.addGroup(group.start,group.count,group.materialIndex)}
+ // Eyes are opaque: do not treat the source texture alpha as transparency.
+ for(const mat of (Array.isArray(o.material)?o.material:[o.material]))if(/eye[lr]$/i.test(mat.name||'')){mat.transparent=false;mat.opacity=1;mat.alphaTest=0;mat.depthWrite=true;mat.needsUpdate=true}
+ });return removed;
+}
+function orientSonic(model){
+ model.updateMatrixWorld(true);const nose=model.getObjectByName('Nose'),head=model.getObjectByName('Head');if(!nose||!head)return;
+ const d=nose.getWorldPosition(new T.Vector3()).sub(head.getWorldPosition(new T.Vector3()));d.y=0;if(d.lengthSq()>.0001)model.rotateOnWorldAxis(new T.Vector3(0,1,0),-Math.atan2(d.x,d.z));model.updateMatrixWorld(true);
+}
+function sonicController(model){
+ model.updateMatrixWorld(true);const bones=new Map();model.traverse(b=>{if(b.isBone&&!bones.has(b.name))bones.set(b.name,b)});
+ const links={Spine:'Spine1',Spine1:'Neck',Neck:'Head',UpperArm_L:'ForeArm_L',UpperArm_R:'ForeArm_R',ForeArm_L:'Hand_L',ForeArm_R:'Hand_R',Thigh_L:'Calf_L',Thigh_R:'Calf_R',Calf_L:'Foot_L',Calf_R:'Foot_R',Foot_L:'Toe_L',Foot_R:'Toe_R'};
+ const names=Object.keys(links).filter(n=>bones.has(n)&&bones.has(links[n]));
+ const rest=new Map(names.map(n=>[n,bones.get(n).quaternion.clone()]));
+ const worldRest=new Map(names.map(n=>[n,bones.get(n).getWorldQuaternion(new T.Quaternion())]));
+ const V=(x,y,z)=>new T.Vector3(x,y,z).normalize(),up=new T.Vector3(0,1,0),dq=new T.Quaternion();
+ // Frames use target directions, with +Z forward and +Y up. Knees bend backward; elbows point toward the hands.
+ function pose(lean=0,l=0,r=0,lk=0,rk=0,la=-.15,ra=-.15,lf=.15,rf=.15,spread=.22){
+ const d={Spine:V(0,1,lean*.55),Spine1:V(0,1,lean),Neck:V(0,1,-lean*.2)};
+ for(const [side,th,k,arm,fore] of [['L',l,lk,la,lf],['R',r,rk,ra,rf]]){
+ const sign=side==='L'?1:-1;const a=bones.get('UpperArm_'+side),other=bones.get('UpperArm_'+(side==='L'?'R':'L'));
+ const sideSign=a&&other?Math.sign(a.getWorldPosition(new T.Vector3()).x-other.getWorldPosition(new T.Vector3()).x)||sign:sign;
+ d['UpperArm_'+side]=V(sideSign*spread,-.85,arm);
+ d['ForeArm_'+side]=V(sideSign*.1,-.35,fore);
+ d['Thigh_'+side]=V(sideSign*.07,-1,th);
+ d['Calf_'+side]=V(0,-1,k);
+ }
+ return d;
+ }
+ const idle=pose(.02,0,0,-.04,-.04,-.12,-.12,.12,.12,.2);
+ const run=(p)=>{const s=Math.sin(p),c=Math.cos(p);return pose(.48,.9*s,-.9*s,-Math.max(.05,-s)*1.65,-Math.max(.05,s)*1.65,-.55-.38*s,-.55+.38*s,.65+.2*c,.65-.2*c,.15)};
+ const dash=pose(.9,-.28,-.45,-.35,-.55,-1.1,-1.1,-.9,-.9,.18);
+ const tuck=pose(.35,1.15,1.15,-1.55,-1.55,.35,.35,1.15,1.15,.22);
+ const rise=pose(.12,.75,-.25,-.9,-.4,-.32,-.5,.35,.3,.22);
+ const fall=pose(.1,.2,.25,-.28,-.3,.25,.25,.35,.35,.65);
+ const land=pose(.55,.8,.8,-1.15,-1.15,-.15,-.15,.6,.6,.22);
+ const guard=pose(.22,.28,.28,-.4,-.4,.45,.45,1.7,1.7,.18);
+ const dodge=pose(.5,-.3,.6,-.7,-.7,-.6,.4,.35,.9,.25);
+ const attack=pose(.6,.25,-.55,-.9,-.5,.8,-.55,1.2,-.25,.22);
+ const states={idle:[1.8,[idle,pose(.05,.03,-.03,-.08,-.04,-.09,-.09,.18,.18,.2),idle]],run:[.36,Array.from({length:9},(_,i)=>run(i*Math.PI/4))],jump:[.25,[land,rise,tuck]],air:[.55,[tuck,rise,fall]],fall:[.4,[fall,fall]],land:[.18,[land,idle]],homing:[.85,[idle,tuck,attack,tuck,idle]],spin:[.85,[idle,tuck,tuck,tuck,idle]],boost:[.85,[idle,dash,dash,dash,idle]],guard:[.85,[idle,guard,guard,idle]],dodge:[.85,[idle,dodge,tuck,idle]],hit:[.35,[idle,fall,idle]],defeat:[.8,[idle,land,tuck]]};
+ const mixer=new T.AnimationMixer(model),actions={};
+ for(const [name,[duration,frames]] of Object.entries(states)){
+ const times=frames.map((_,i)=>duration*i/(frames.length-1)),values=new Map(names.map(n=>[n,[]]));
+ for(const p of frames){
+ for(const n of names)bones.get(n).quaternion.copy(rest.get(n));model.updateMatrixWorld(true);
+ for(const n of names){const b=bones.get(n),child=bones.get(links[n]);const parentQ=b.parent.getWorldQuaternion(new T.Quaternion());let desired;
+ if(n.startsWith('Foot')){desired=worldRest.get(n).clone();}
+ else if(p[n]){const current=child.getWorldPosition(new T.Vector3()).sub(b.getWorldPosition(new T.Vector3())).normalize();const target=p[n];if(current.lengthSq()>.5&&target.lengthSq()>.5)desired=dq.setFromUnitVectors(current,target).clone().multiply(b.getWorldQuaternion(new T.Quaternion()));}
+ if(desired){b.quaternion.copy(parentQ.invert().multiply(desired)).normalize();b.updateWorldMatrix(false,true)}
+ }
+ for(const n of names)bones.get(n).quaternion.toArray(values.get(n),values.get(n).length);
+ }
+ const tracks=names.map(n=>new T.QuaternionKeyframeTrack(bones.get(n).uuid+'.quaternion',times,values.get(n)));
+ if(!tracks.length)continue;const action=mixer.clipAction(new T.AnimationClip(name,duration,tracks));
+ if(!['idle','run','fall'].includes(name)){action.setLoop(T.LoopOnce,1);action.clampWhenFinished=true}actions[name]=action;
+ }
+ for(const n of names)bones.get(n).quaternion.copy(rest.get(n));model.updateMatrixWorld(true);
+ let active=null,token=null;return {count:Object.keys(actions).length,bones:names.length,play(name,event){const next=actions[name]||actions.idle;if(!next||next===active&&event===token)return;const prev=active;next.reset().setEffectiveWeight(1).play();if(prev&&prev!==next)prev.crossFadeTo(next,name==='land'?.06:.1,false);active=next;token=event;},update(dt){mixer.update(dt)}};
+}
+
 const loaded=new Map();
 let sharedPack;
 function getPublishedPack(){return sharedPack??=(async()=>{const res=await fetch('./'+encodeURIComponent('Project-4-Sonic-modelos (1).zip'));if(!res.ok)throw Error('Paquete HTTP '+res.status);return unzipSync(new Uint8Array(await res.arrayBuffer()));})();}
@@ -110,10 +185,10 @@ for(const [label,root] of [['Sonic',sonic],['Metal Sonic',metal]]){
  manager.setURLModifier(url=>{if(/^(blob:|data:)/i.test(url))return url;let key=url;try{key=decodeURIComponent(url)}catch{}key=key.replace(/\\/g,'/').split('/').pop().toLowerCase();return textures.get(key)||url});
  manager.onError=url=>console.warn('Textura no encontrada:',url);
  const data=files[fbx],model=new FBXLoader(manager).parse(data.buffer.slice(data.byteOffset,data.byteOffset+data.byteLength),'');
- model.updateMatrixWorld(true);const bounds=new T.Box3().setFromObject(model),size=bounds.getSize(new T.Vector3());if(!Number.isFinite(size.y)||size.y<=0)throw Error('Modelo sin geometría válida');
+ if(root===sonic){orientSonic(model);fixSonicFace(model);}model.updateMatrixWorld(true);const bounds=new T.Box3().setFromObject(model),size=bounds.getSize(new T.Vector3());if(!Number.isFinite(size.y)||size.y<=0)throw Error('Modelo sin geometría válida');
  const scale=3.4/size.y;model.scale.multiplyScalar(scale);model.updateMatrixWorld(true);const b=new T.Box3().setFromObject(model),center=b.getCenter(new T.Vector3());model.position.sub(new T.Vector3(center.x,b.min.y,center.z));
- const visual=root.getObjectByName('body');for(const child of [...visual.children])child.visible=false;visual.add(model);const previous=loaded.get(root);if(previous){visual.remove(previous.model);previous.urls.forEach(URL.revokeObjectURL);}
- const controller=skeletalController(model,root===metal);loaded.set(root,{model,controller,urls});status.textContent=' Cargado · '+controller.count+' animaciones · '+controller.bones+' huesos';return true;
+ const controller=root===sonic?sonicController(model):skeletalController(model,true);const visual=root.getObjectByName('body');for(const child of [...visual.children])child.visible=false;visual.add(model);const previous=loaded.get(root);if(previous){visual.remove(previous.model);previous.urls.forEach(URL.revokeObjectURL);}
+ loaded.set(root,{model,controller,urls});status.textContent=' Cargado · '+controller.count+' animaciones · '+controller.bones+' huesos';return true;
  }catch(err){urls.forEach(URL.revokeObjectURL);status.textContent=' Error: '+err.message;console.error(err);return false;}};
  let manual=false;
  input.onchange=async()=>{const file=input.files[0];if(!file)return;manual=true;if(await loadModel(file))savedModel(label,file).catch(()=>{});};
@@ -126,10 +201,10 @@ for(const [label,root] of [['Sonic',sonic],['Metal Sonic',metal]]){
 let overhead=false;document.getElementById('cinema').onclick=()=>overhead=false;document.getElementById('overhead').onclick=()=>overhead=true;
 const sparks=new T.BufferGeometry(),arr=new Float32Array(240*3);for(let i=0;i<arr.length;i+=3){arr[i]=(Math.random()-.5)*88;arr[i+1]=Math.random()*28;arr[i+2]=(Math.random()-.5)*88}sparks.setAttribute('position',new T.BufferAttribute(arr,3));scene.add(new T.Points(sparks,new T.PointsMaterial({color:0xff4026,size:.055,transparent:true,opacity:.7})));
 function resize(){r.setSize(host.clientWidth,host.clientHeight);camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(host);resize();
-const held=new Set(),player=new T.Vector3(-5,0,0),movement=new T.Vector3(),clock=new T.Clock();let lastTurn=0,heading=Math.PI/2;const enemyPos=new T.Vector3(5,0,0);
+const held=new Set(),player=new T.Vector3(-5,0,0),movement=new T.Vector3(),clock=new T.Clock();let lastTurn=0,heading=Math.PI/2;const enemyPos=new T.Vector3(5,0,0);let jumpY=0,jumpV=0,jumpTime=0,landTime=0,jumpToken=0;function jump(){const s=window.arenaState();if(s.hp<=0||s.metal<=0||jumpY>.001||jumpV>0||(s.turn&&performance.now()-s.flash<850))return;jumpV=12.4;jumpTime=0;landTime=0;jumpToken++;}document.getElementById('jump').addEventListener('click',jump);window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)){e.preventDefault();if(!e.repeat)jump();}});
 window.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)||e.ctrlKey||e.metaKey||e.altKey)return;const k=e.key.toLowerCase();if('wasd'.includes(k)&&k.length===1){e.preventDefault();held.add(k)}});
 window.addEventListener('keyup',e=>held.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>held.clear());document.addEventListener('visibilitychange',()=>{if(document.hidden)held.clear()});
-document.getElementById('reset').addEventListener('click',()=>{player.set(-5,0,0);enemyPos.set(5,0,0);heading=Math.PI/2;held.clear()});
+document.getElementById('reset').addEventListener('click',()=>{player.set(-5,0,0);enemyPos.set(5,0,0);jumpY=jumpV=jumpTime=landTime=0;heading=Math.PI/2;held.clear()});
 
 // Visual combat choreography: no change to the deterministic AI damage model.
 const fxMaterial=(color,opacity)=>new T.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false,blending:T.AdditiveBlending});
@@ -144,8 +219,9 @@ const bindings={j:'homing',k:'spin',l:'boost',u:'guard',i:'dodge'};
 window.addEventListener('keydown',e=>{if(e.repeat||e.ctrlKey||e.altKey||e.metaKey||['INPUT','SELECT','TEXTAREA','BUTTON'].includes(e.target.tagName))return;const key=bindings[e.key.toLowerCase()];if(key){e.preventDefault();document.querySelector('[data-move="'+key+'"]')?.click()}});
 function frame(t){const dt=Math.min(clock.getDelta(),.05),s=window.arenaState(),elapsed=s.turn?Math.max(0,(t-s.flash)/1000):99,a=s.turn?Math.max(0,1-elapsed/.85):0;const acting=a>0,phase=T.MathUtils.clamp(elapsed/.85,0,1);if(visualTurn!==s.turn){visualTurn=s.turn;originP.copy(player);originE.copy(enemyPos);trailReady=false;}
 movement.set(Number(held.has('d'))-Number(held.has('a')),0,Number(held.has('s'))-Number(held.has('w')));
+landTime=Math.max(0,landTime-dt);if(acting){jumpY=jumpV=0;}else if(jumpY>0||jumpV>0){jumpTime+=dt;jumpV-=29*dt;jumpY+=jumpV*dt;if(jumpY<=0){jumpY=jumpV=0;landTime=.18;}}const airborne=jumpY>0||jumpV>0;
 const moving=movement.lengthSq()>0&&s.hp>0&&s.metal>0;if(moving&&!acting){movement.normalize();player.addScaledVector(movement,dt*12);if(player.length()>41)player.setLength(41);heading=Math.atan2(movement.x,movement.z)}
-const enemy=enemyPos,toward=enemy.clone().sub(player);if(toward.lengthSq()>0)toward.normalize();sonic.position.copy(player).addScaledVector(toward,a*2);sonic.position.y=moving?Math.abs(Math.sin(t*.018))*.16:Math.sin(t*.004)*.035;sonic.rotation.y=a>0?Math.atan2(toward.x,toward.z):heading;
+const enemy=enemyPos,toward=enemy.clone().sub(player);if(toward.lengthSq()>0)toward.normalize();sonic.position.copy(player).addScaledVector(toward,a*2);sonic.position.y=jumpY+(moving&&!airborne?Math.abs(Math.sin(t*.018))*.055:0);sonic.rotation.y=a>0?Math.atan2(toward.x,toward.z):heading;
 const chase=player.clone().sub(enemyPos),dist=chase.length();let pursuing=false;if(!acting&&s.hp>0&&s.metal>0&&dist>.01){chase.normalize();const tangent=new T.Vector3(-chase.z,0,chase.x);if(dist>6){enemyPos.addScaledVector(chase,Math.min(dist-6,dt*(a>0?16:8)));pursuing=true;}else if(dist<3){enemyPos.addScaledVector(chase,-dt*5);}else{enemyPos.addScaledVector(tangent,dt*3);pursuing=true;}if(enemyPos.length()>41)enemyPos.setLength(41);}metal.position.copy(enemyPos).addScaledVector(chase,a*1.5);metal.position.y=.35+Math.sin(t*.005)*.15;metal.rotation.y=Math.atan2(player.x-metal.position.x,player.z-metal.position.z);sonic.visible=s.hp>0;metal.visible=s.metal>0;
 
 const sAttack=['homing','spin','boost'].includes(s.last);
@@ -159,18 +235,18 @@ if(acting){
  metal.position.copy(originE);if(enemyState==='dodge')metal.position.addScaledVector(side,-2.6*surge);else if(enemyState!=='shield')metal.position.addScaledVector(d,-Math.max(0,distance-2.1)*surge*.35);metal.position.y=.5+1.1*surge;metal.rotation.y=Math.atan2(sonic.position.x-metal.position.x,sonic.position.z-metal.position.z);
 }
 sonic.visible=s.hp>0||acting||s.turn>0;metal.visible=s.metal>0||acting||s.turn>0;
-const sState=acting?s.last:s.hp<=0?'defeat':moving?'run':'idle',mState=acting?enemyState:s.metal<=0?'defeat':pursuing?'chase':'hover';
+const sState=acting?s.last:s.hp<=0?'defeat':airborne?(jumpTime<.25?'jump':jumpV>0?'air':'fall'):landTime>0?'land':moving?'run':'idle',mState=acting?enemyState:s.metal<=0?'defeat':pursuing?'chase':'hover';
 const sc=loaded.get(sonic)?.controller,mc=loaded.get(metal)?.controller;
-sonicAnim.play(sc?'idle':sState);metalAnim.play(mc?'idle':mState==='chase'?'boost':mState==='shield'?'guard':mState==='intercept'||mState==='area'?'counter':mState);
+sonicAnim.play(sc?'idle':airborne?'homing':sState);metalAnim.play(mc?'idle':mState==='chase'?'boost':mState==='shield'?'guard':mState==='intercept'||mState==='area'?'counter':mState);
 sonicAnim.update(dt);metalAnim.update(dt);
-if(sc){sc.play(sState,acting||sState==='defeat'?s.turn:0);sc.update(dt)}if(mc){mc.play(mState,acting||mState==='defeat'?s.turn:0);mc.update(dt)}
+if(sc){sc.play(sState,acting||sState==='defeat'?s.turn:airborne||sState==='land'?jumpToken:0);sc.update(dt)}if(mc){mc.play(mState,acting||mState==='defeat'?s.turn:0);mc.update(dt)}
 // Spin and homing use a rotating visual root, independent of the skeleton.
 if(acting&&s.last==='spin')sonic.getObjectByName('body').rotation.x=phase*Math.PI*6;
-else if(sc)sonic.getObjectByName('body').rotation.x=0;
+else if(sc)sonic.getObjectByName('body').rotation.x=airborne&&jumpTime<.2?-.12:0;
 auraS.visible=acting&&sAttack;auraS.position.copy(sonic.position).add(new T.Vector3(0,1.3,0));auraS.scale.setScalar(1+.25*Math.sin(phase*Math.PI));auraM.visible=acting&&enemyState!=='shield';auraM.position.copy(metal.position).add(new T.Vector3(0,1.6,0));
 shield.visible=acting&&(enemyState==='shield'||s.last==='guard');shield.position.copy(enemyState==='shield'?metal.position:sonic.position).add(new T.Vector3(0,1.45,0));shield.rotation.y=t*.002;
 shock.visible=acting&&phase>.42&&phase<.8;shock.position.copy(sonic.position).lerp(metal.position,.5);shock.position.y=.24;shock.scale.setScalar(1+7*Math.max(0,phase-.42));shock.material.opacity=Math.max(0,1-(phase-.42)/.38);
 const trail=acting&&sAttack||moving;if(trail){const current=sonic.position.clone().add(new T.Vector3(0,1.1,0));if(!trailReady){streaks.forEach(o=>o.position.copy(current));trailReady=true;}for(let j=streaks.length-1;j>0;j--)streaks[j].position.lerp(streaks[j-1].position,.55);streaks[0].position.lerp(current,.7);streaks.forEach((o,j)=>{o.visible=true;o.scale.setScalar(.56*(1-j/streaks.length));o.material.opacity=.25*(1-j/streaks.length)})}else{trailReady=false;streaks.forEach(o=>o.visible=false)}
-const focus=acting?sonic.position.clone().lerp(metal.position,.38):player.clone();const target=overhead?new T.Vector3(0,105,.01):new T.Vector3(focus.x-2,acting?6.8:8,focus.z+(acting?15:18));camera.position.lerp(target,1-Math.exp(-dt*7));camera.lookAt(overhead?0:focus.x,overhead?0:1.7,overhead?0:focus.z);
+const focus=acting?sonic.position.clone().lerp(metal.position,.38):player.clone();const target=overhead?new T.Vector3(0,105,.01):new T.Vector3(focus.x-2,acting?6.8:8,focus.z+(acting?15:18));camera.position.lerp(target,1-Math.exp(-dt*7));camera.lookAt(overhead?0:focus.x,overhead?0:1.7+jumpY*.35,overhead?0:focus.z);
 r.render(scene,camera);requestAnimationFrame(frame)}camera.position.set(-7,8,18);requestAnimationFrame(frame);
 </script></html>
