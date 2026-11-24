@@ -43,7 +43,7 @@ function animator(root,robot){
 const sonicAnim=animator(sonic,false),metalAnim=animator(metal,true);
 
 // Local ZIP import: models stay on the player's device, not in the public repository.
-const panel=document.createElement('div');panel.style.cssText='padding:12px;display:flex;flex-wrap:wrap;gap:12px';host.parentElement.before(panel);panel.style.background='#252033';panel.style.color='#fff';const help=document.createElement('p');help.textContent='El juego busca automáticamente los modelos en assets/models/. Si no están publicados, selecciona los ZIP originales aquí; se guardan en este navegador.';panel.append(help);
+const panel=document.createElement('div');panel.style.cssText='padding:12px;display:flex;flex-wrap:wrap;gap:12px';host.parentElement.before(panel);panel.style.background='#252033';panel.style.color='#fff';const help=document.createElement('p');help.textContent='Los modelos se cargan automáticamente desde el paquete publicado. Puedes seleccionar otros ZIP si deseas reemplazarlos.';panel.append(help);
 const dbPromise=new Promise((resolve,reject)=>{const req=indexedDB.open('sonic-local-models',1);req.onupgradeneeded=()=>req.result.createObjectStore('models');req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error)});dbPromise.catch(()=>{});async function savedModel(label,file){const db=await dbPromise;return new Promise((resolve,reject)=>{const tx=db.transaction('models',file?'readwrite':'readonly');const req=file?tx.objectStore('models').put(file,label):tx.objectStore('models').get(label);req.onsuccess=()=>resolve(req.result);req.onerror=()=>reject(req.error);});}
 
 // Original, rig-specific skeletal animations. Angles in degrees, relative to rest pose.
@@ -95,6 +95,10 @@ function skeletalController(model,isMetal){
 }
 
 const loaded=new Map();
+let sharedPack;
+function getPublishedPack(){return sharedPack??=(async()=>{const res=await fetch('./'+encodeURIComponent('Project-4-Sonic-modelos (1).zip'));if(!res.ok)throw Error('Paquete HTTP '+res.status);return unzipSync(new Uint8Array(await res.arrayBuffer()));})();}
+async function packedModel(asset){const files=await getPublishedPack();const key=Object.keys(files).find(k=>k.split('/').pop().toLowerCase()===asset);if(!key)throw Error('No se encontró '+asset+' en el paquete');return new Blob([files[key]],{type:'application/zip'});}
+
 for(const [label,root] of [['Sonic',sonic],['Metal Sonic',metal]]){
  const wrap=document.createElement('label');wrap.textContent='Modelo '+label+' (.zip): ';const input=document.createElement('input');input.type='file';input.accept='.zip';wrap.append(input);const status=document.createElement('span');wrap.append(status);panel.append(wrap);
  async function loadModel(file){if(!file)return;status.textContent=' Cargando…';const urls=[];try{
@@ -114,6 +118,7 @@ for(const [label,root] of [['Sonic',sonic],['Metal Sonic',metal]]){
  let manual=false;
  input.onchange=async()=>{const file=input.files[0];if(!file)return;manual=true;if(await loadModel(file))savedModel(label,file).catch(()=>{});};
  (async()=>{const asset=root===sonic?'sonic.zip':'metal-sonic.zip';status.textContent=' Buscando modelo…';try{const res=await fetch('./assets/models/'+asset);if(res.ok&&!/text\/html/i.test(res.headers.get('content-type')||'')){const blob=await res.blob();if(!manual&&await loadModel(blob))return;}}catch(err){console.warn('Modelo publicado no disponible:',err)}
+ if(manual)return;try{const file=await packedModel(asset);if(!manual&&await loadModel(file))return;}catch(err){console.warn('Paquete de modelos:',err);}
  if(manual)return;try{const file=await savedModel(label);if(file&&!manual){if(await loadModel(file))return;}}catch(err){console.warn(err)}
  if(!manual&&!loaded.has(root))status.textContent=' Modelo no publicado: selecciona el ZIP.';
  })();
