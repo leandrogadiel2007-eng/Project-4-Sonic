@@ -140,8 +140,31 @@ function sonicController(model){
  return d;
  }
  const idle=pose(.02,0,0,-.04,-.04,-.12,-.12,.12,.12,.2);
- const run=(p)=>{const s=Math.sin(p),c=Math.cos(p);return pose(.34,.95*s,-.95*s,-Math.max(.08,-s)*1.6,-Math.max(.08,s)*1.6,-.45-.5*s,-.45+.5*s,.55+.3*c,.55-.3*c,.16)}; const walk=(p)=>{const s=Math.sin(p);return pose(.08,.46*s,-.46*s,-Math.max(.04,-s)*.65,-Math.max(.04,s)*.65,-.15-.3*s,-.15+.3*s,.3,.3,.18)}; const brake=pose(-.28,.5,.55,-.3,-.35,.45,.45,.25,.25,.5); const powerRun=p=>{const s=Math.sin(p);return pose(.75,1.05*s,-1.05*s,-Math.max(.1,-s)*1.9,-Math.max(.1,s)*1.9,-1.15,-1.15,-.9,-.9,.13)};
- const dash=pose(.72,-.22,.24,-.48,-.3,-1.3,-1.3,-1.1,-1.1,.14);
+ // Hand-authored Sonic-specific gait: stable swept-back arms, planted stance, fast recovery.
+ const walk=p=>{const s=Math.sin(p);return pose(.08,.38*s,-.38*s,-Math.max(.04,-s)*.55,-Math.max(.04,s)*.55,-.15-.23*s,-.15+.23*s,.22,.22,.18)};
+ const legLengths={};for(const side of ['L','R']){const hip=bones.get('Thigh_'+side),knee=bones.get('Calf_'+side),ankle=bones.get('Foot_'+side);if(hip&&knee&&ankle){const a=hip.getWorldPosition(new T.Vector3()),b=knee.getWorldPosition(new T.Vector3()),c=ankle.getWorldPosition(new T.Vector3());legLengths[side]=[a.distanceTo(b),b.distanceTo(c)];}}
+ // Two-link analytical IK in the sagittal plane. The foot follows an elliptical recovery,
+ // but the contact phase is near level. The knee always bends toward the front.
+ function legCycle(d,side,phase,fast){
+ const lengths=legLengths[side];if(!lengths)return;
+ const [a,b]=lengths,L=a+b,p=((phase%1)+1)%1,stance=fast?.45:.56;
+ let z,y;
+ if(p<stance){const k=p/stance;z=L*(fast?.44:.33)*(1-2*k);y=-L*(fast?.83:.9);}
+ else{const k=(p-stance)/(1-stance);z=L*(fast?.44:.33)*(-1+2*k);y=-L*(fast?.83:.9)+L*(fast?.43:.29)*Math.sin(Math.PI*k);}
+ const dist=T.MathUtils.clamp(Math.hypot(y,z),Math.abs(a-b)+.0001,L*.997),scale=dist/Math.hypot(y,z);y*=scale;z*=scale;
+ const along=(a*a-b*b+dist*dist)/(2*dist),out=Math.sqrt(Math.max(0,a*a-along*along));
+ const uy=y/dist,uz=z/dist,ky=uy*along+uz*out,kz=uz*along-uy*out;
+ d['Thigh_'+side]=V(0,ky,kz);d['Calf_'+side]=V(0,y-ky,z-kz);
+ // Toe points down on take-off and is level during the contact phase.
+ d['Foot_'+side]=p<stance?0:Math.sin(Math.PI*(p-stance)/(1-stance))*.52;
+ }
+ function sonicGait(p,fast){const wave=Math.sin(p),d=pose(fast?.73:.38,0,0,0,0,-1,-1,-.8,-.8,.15);
+ for(const side of ['L','R']){const sign=side==='L'?1:-1;d['UpperArm_'+side]=V(sign*.19,fast?-.28:-.55,-1);d['ForeArm_'+side]=V(sign*.07,fast?-.04:-.15,-1);legCycle(d,side,p/(2*Math.PI)+(side==='R'?.5:0),fast);}
+ d.Spine=V(0,1,fast?.56:.27);d.Spine1=V(0,1,fast?.85:.46);d.Neck=V(0,1,-.10);d.Head=V(0,1,0);
+ return d;}
+ const run=p=>sonicGait(p,false),powerRun=p=>sonicGait(p,true);
+ const brake=pose(-.25,.45,.55,-.15,-.2,.5,.5,.3,.3,.48);
+ const dash=sonicGait(0,true);
  const tuck=pose(.35,1.15,1.15,-1.55,-1.55,.35,.35,1.15,1.15,.22);
  const rise=pose(.12,.75,-.25,-.9,-.4,-.32,-.5,.35,.3,.22);
  const fall=pose(.1,.2,.25,-.28,-.3,.25,.25,.35,.35,.65);
@@ -149,14 +172,14 @@ function sonicController(model){
  const guard=pose(.22,.28,.28,-.4,-.4,.45,.45,1.7,1.7,.18);
  const dodge=pose(.5,-.3,.6,-.7,-.7,-.6,.4,.35,.9,.25);
  const attack=pose(.6,.25,-.55,-.9,-.5,.8,-.55,1.2,-.25,.22);
- const states={idle:[1.8,[idle,pose(.05,.03,-.03,-.08,-.04,-.09,-.09,.18,.18,.2),idle]],walk:[.78,Array.from({length:9},(_,i)=>walk(i*Math.PI/4))],run:[.42,Array.from({length:9},(_,i)=>run(i*Math.PI/4))],sprint:[.32,Array.from({length:9},(_,i)=>powerRun(i*Math.PI/4))],brake:[.28,[brake,idle]],jump:[.25,[land,rise,tuck]],air:[.55,[tuck,rise,fall]],fall:[.4,[fall,fall]],land:[.18,[land,idle]],homing:[.85,[idle,tuck,attack,tuck,idle]],spin:[.85,[idle,tuck,tuck,tuck,idle]],boost:[.85,[idle,dash,dash,dash,idle]],guard:[.85,[idle,guard,guard,idle]],dodge:[.85,[idle,dodge,tuck,idle]],hit:[.35,[idle,fall,idle]],defeat:[.8,[idle,land,tuck]]};
+ const states={idle:[1.8,[idle,pose(.05,.03,-.03,-.08,-.04,-.09,-.09,.18,.18,.2),idle]],walk:[.78,Array.from({length:9},(_,i)=>walk(i*Math.PI/4))],run:[.34,Array.from({length:17},(_,i)=>run(i*Math.PI/8))],sprint:[.24,Array.from({length:17},(_,i)=>powerRun(i*Math.PI/8))],brake:[.28,[brake,idle]],jump:[.25,[land,rise,tuck]],air:[.55,[tuck,rise,fall]],fall:[.4,[fall,fall]],land:[.18,[land,idle]],homing:[.85,[idle,tuck,attack,tuck,idle]],spin:[.85,[idle,tuck,tuck,tuck,idle]],boost:[.85,[idle,...Array.from({length:13},(_,i)=>powerRun(i*Math.PI/3)),idle]],guard:[.85,[idle,guard,guard,idle]],dodge:[.85,[idle,dodge,tuck,idle]],hit:[.35,[idle,fall,idle]],defeat:[.8,[idle,land,tuck]]};
  const mixer=new T.AnimationMixer(model),actions={};
  for(const [name,[duration,frames]] of Object.entries(states)){
  const times=frames.map((_,i)=>duration*i/(frames.length-1)),values=new Map(names.map(n=>[n,[]]));
  for(const p of frames){
  for(const n of names)bones.get(n).quaternion.copy(rest.get(n));model.updateMatrixWorld(true);
  for(const n of names){const b=bones.get(n),child=bones.get(links[n]);const parentQ=b.parent.getWorldQuaternion(new T.Quaternion());let desired;
- if(n.startsWith('Foot')){desired=worldRest.get(n).clone();}
+ if(n.startsWith('Foot')){desired=worldRest.get(n).clone();if(typeof p[n]==='number')desired.premultiply(new T.Quaternion().setFromAxisAngle(new T.Vector3(1,0,0),p[n]));}
  else if(p[n]){const current=child.getWorldPosition(new T.Vector3()).sub(b.getWorldPosition(new T.Vector3())).normalize();const target=p[n];if(current.lengthSq()>.5&&target.lengthSq()>.5)desired=dq.setFromUnitVectors(current,target).clone().multiply(b.getWorldQuaternion(new T.Quaternion()));}
  if(desired){b.quaternion.copy(parentQ.invert().multiply(desired)).normalize();b.updateWorldMatrix(false,true)}
  }
@@ -206,10 +229,10 @@ for(const [label,root] of [['Sonic',sonic],['Metal Sonic',metal]]){
 let overhead=false;document.getElementById('cinema').onclick=()=>overhead=false;document.getElementById('overhead').onclick=()=>overhead=true;
 const sparks=new T.BufferGeometry(),arr=new Float32Array(240*3);for(let i=0;i<arr.length;i+=3){arr[i]=(Math.random()-.5)*88;arr[i+1]=Math.random()*28;arr[i+2]=(Math.random()-.5)*88}sparks.setAttribute('position',new T.BufferAttribute(arr,3));scene.add(new T.Points(sparks,new T.PointsMaterial({color:0xff4026,size:.055,transparent:true,opacity:.7})));
 function resize(){r.setSize(host.clientWidth,host.clientHeight);camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(host);resize();
-const held=new Set(),player=new T.Vector3(-5,0,0),movement=new T.Vector3(),clock=new T.Clock();let lastTurn=0,heading=Math.PI/2;const enemyPos=new T.Vector3(5,0,0);let jumpY=0,jumpV=0,jumpTime=0,landTime=0,jumpToken=0;const velocity=new T.Vector3();function jump(){const s=window.arenaState();if(s.hp<=0||s.metal<=0||jumpY>.001||jumpV>0||(s.turn&&performance.now()-s.flash<850))return;jumpV=12.4;jumpTime=0;landTime=0;jumpToken++;}document.getElementById('jump').addEventListener('click',jump);window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)){e.preventDefault();if(!e.repeat)jump();}});
+const held=new Set(),player=new T.Vector3(-5,0,0),movement=new T.Vector3(),clock=new T.Clock();let lastTurn=0,heading=Math.PI/2,bank=0;const enemyPos=new T.Vector3(5,0,0);let jumpY=0,jumpV=0,jumpTime=0,landTime=0,jumpToken=0;const velocity=new T.Vector3();function jump(){const s=window.arenaState();if(s.hp<=0||s.metal<=0||jumpY>.001||jumpV>0||(s.turn&&performance.now()-s.flash<850))return;jumpV=12.4;jumpTime=0;landTime=0;jumpToken++;}document.getElementById('jump').addEventListener('click',jump);window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)){e.preventDefault();if(!e.repeat)jump();}});
 window.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)||e.ctrlKey||e.metaKey||e.altKey)return;const k=e.key.toLowerCase();if(('wasd'.includes(k)&&k.length===1)||k==='shift'){e.preventDefault();held.add(k)}});
 window.addEventListener('keyup',e=>held.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>held.clear());document.addEventListener('visibilitychange',()=>{if(document.hidden)held.clear()});
-document.getElementById('reset').addEventListener('click',()=>{player.set(-5,0,0);enemyPos.set(5,0,0);jumpY=jumpV=jumpTime=landTime=0;velocity.set(0,0,0);heading=Math.PI/2;held.clear()});
+document.getElementById('reset').addEventListener('click',()=>{player.set(-5,0,0);enemyPos.set(5,0,0);jumpY=jumpV=jumpTime=landTime=0;velocity.set(0,0,0);bank=0;heading=Math.PI/2;held.clear()});
 
 // Visual combat choreography: no change to the deterministic AI damage model.
 const fxMaterial=(color,opacity)=>new T.MeshBasicMaterial({color,transparent:true,opacity,depthWrite:false,blending:T.AdditiveBlending});
@@ -228,8 +251,8 @@ window.addEventListener('keydown',e=>{if(e.repeat||e.ctrlKey||e.altKey||e.metaKe
 function frame(t){const dt=Math.min(clock.getDelta(),.05),s=window.arenaState(),elapsed=s.turn?Math.max(0,(t-s.flash)/1000):99,a=s.turn?Math.max(0,1-elapsed/.85):0;const acting=a>0,phase=T.MathUtils.clamp(elapsed/.85,0,1);if(visualTurn!==s.turn){visualTurn=s.turn;originP.copy(player);originE.copy(enemyPos);trailReady=false;}
 movement.set(Number(held.has('d'))-Number(held.has('a')),0,Number(held.has('s'))-Number(held.has('w')));
 landTime=Math.max(0,landTime-dt);if(acting){jumpY=jumpV=0;}else if(jumpY>0||jumpV>0){jumpTime+=dt;jumpV-=29*dt;jumpY+=jumpV*dt;if(jumpY<=0){jumpY=jumpV=0;landTime=.18;}}const airborne=jumpY>0||jumpV>0;
-const inputMoving=movement.lengthSq()>0&&s.hp>0&&s.metal>0;const boosting=inputMoving&&held.has('shift');if(inputMoving)movement.normalize().multiplyScalar(boosting?26:14);if(acting||s.hp<=0||s.metal<=0)velocity.set(0,0,0);else{velocity.lerp(movement,1-Math.exp(-dt*(inputMoving?airborne?3:4.5:airborne?1.5:10)));player.addScaledVector(velocity,dt);if(player.length()>41){player.setLength(41);velocity.set(0,0,0)}}const speed=velocity.length(),moving=speed>.4;if(moving){const targetHeading=Math.atan2(velocity.x,velocity.z);heading+=Math.atan2(Math.sin(targetHeading-heading),Math.cos(targetHeading-heading))*(1-Math.exp(-dt*12));}
-const enemy=enemyPos,toward=enemy.clone().sub(player);if(toward.lengthSq()>0)toward.normalize();sonic.position.copy(player).addScaledVector(toward,a*2);sonic.position.y=jumpY+(moving&&!airborne?Math.abs(Math.sin(t*.018))*.055:0);sonic.rotation.y=a>0?Math.atan2(toward.x,toward.z):heading;
+const inputMoving=movement.lengthSq()>0&&s.hp>0&&s.metal>0;const boosting=inputMoving&&held.has('shift');if(inputMoving)movement.normalize().multiplyScalar(boosting?26:14);if(acting||s.hp<=0||s.metal<=0)velocity.set(0,0,0);else{velocity.lerp(movement,1-Math.exp(-dt*(inputMoving?airborne?3:4.5:airborne?1.5:10)));player.addScaledVector(velocity,dt);if(player.length()>41){player.setLength(41);velocity.set(0,0,0)}}const speed=velocity.length(),moving=speed>.4;if(moving){const targetHeading=Math.atan2(velocity.x,velocity.z);const delta=Math.atan2(Math.sin(targetHeading-heading),Math.cos(targetHeading-heading));heading+=delta*(1-Math.exp(-dt*12));bank=T.MathUtils.lerp(bank,T.MathUtils.clamp(-delta*.8,-.40,.40)*Math.min(speed/12,1),1-Math.exp(-dt*10));}else bank*=Math.exp(-dt*10);
+const enemy=enemyPos,toward=enemy.clone().sub(player);if(toward.lengthSq()>0)toward.normalize();sonic.position.copy(player).addScaledVector(toward,a*2);sonic.position.y=jumpY+(moving&&!airborne?Math.abs(Math.sin(t*.026))*(speed>17?.025:.045):0);sonic.rotation.y=a>0?Math.atan2(toward.x,toward.z):heading;
 const chase=player.clone().sub(enemyPos),dist=chase.length();let pursuing=false;if(!acting&&s.hp>0&&s.metal>0&&dist>.01){chase.normalize();const tangent=new T.Vector3(-chase.z,0,chase.x);if(dist>6){enemyPos.addScaledVector(chase,Math.min(dist-6,dt*(a>0?16:8)));pursuing=true;}else if(dist<3){enemyPos.addScaledVector(chase,-dt*5);}else{enemyPos.addScaledVector(tangent,dt*3);pursuing=true;}if(enemyPos.length()>41)enemyPos.setLength(41);}metal.position.copy(enemyPos).addScaledVector(chase,a*1.5);metal.position.y=.35+Math.sin(t*.005)*.15;metal.rotation.y=Math.atan2(player.x-metal.position.x,player.z-metal.position.z);sonic.visible=s.hp>0;metal.visible=s.metal>0;
 
 const sAttack=['homing','spin','boost'].includes(s.last);
@@ -250,11 +273,11 @@ sonicAnim.update(dt);metalAnim.update(dt);
 if(sc){sc.play(sState,acting||sState==='defeat'?s.turn:airborne||sState==='land'?jumpToken:0,['walk','run','sprint'].includes(sState)?T.MathUtils.clamp(speed/(sState==='walk'?4:sState==='run'?12:23),.65,1.5):1);sc.update(dt)}if(mc){mc.play(mState,acting||mState==='defeat'?s.turn:0);mc.update(dt)}
 // Spin and homing use a rotating visual root, independent of the skeleton.
 if(acting&&s.last==='spin')sonic.getObjectByName('body').rotation.x=phase*Math.PI*6;
-else if(sc)sonic.getObjectByName('body').rotation.x=airborne&&jumpTime<.2?-.12:0;
+else if(sc)sonic.getObjectByName('body').rotation.x=airborne&&jumpTime<.2?-.12:0;sonic.getObjectByName('body').rotation.z=acting||airborne?0:bank;
 const curled=s.hp>0&&(airborne&&jumpTime>.09||acting&&['spin','homing'].includes(s.last)&&phase>.12&&phase<.85);sonic.getObjectByName('body').visible=!curled;spinBall.visible=curled;spinBall.position.copy(sonic.position);spinBall.position.y+=1.17;spinBall.rotation.set(t*.018,heading,t*.006);auraS.visible=acting&&sAttack||boosting&&moving&&!acting;auraS.position.copy(sonic.position).add(new T.Vector3(0,1.3,0));auraS.scale.setScalar(1+.25*Math.sin(phase*Math.PI));auraM.visible=acting&&enemyState!=='shield';auraM.position.copy(metal.position).add(new T.Vector3(0,1.6,0));
 shield.visible=acting&&(enemyState==='shield'||s.last==='guard');shield.position.copy(enemyState==='shield'?metal.position:sonic.position).add(new T.Vector3(0,1.45,0));shield.rotation.y=t*.002;
 shock.visible=acting&&phase>.42&&phase<.8;shock.position.copy(sonic.position).lerp(metal.position,.5);shock.position.y=.24;shock.scale.setScalar(1+7*Math.max(0,phase-.42));shock.material.opacity=Math.max(0,1-(phase-.42)/.38);
-const trail=acting&&sAttack||moving;if(trail){const current=sonic.position.clone().add(new T.Vector3(0,1.1,0));if(!trailReady){streaks.forEach(o=>o.position.copy(current));trailReady=true;}for(let j=streaks.length-1;j>0;j--)streaks[j].position.lerp(streaks[j-1].position,.55);streaks[0].position.lerp(current,.7);streaks.forEach((o,j)=>{o.visible=true;o.scale.setScalar(.56*(1-j/streaks.length));o.material.opacity=.25*(1-j/streaks.length)})}else{trailReady=false;streaks.forEach(o=>o.visible=false)}
+const trail=acting&&sAttack||speed>17;if(trail){const current=sonic.position.clone().add(new T.Vector3(0,1.1,0));if(!trailReady){streaks.forEach(o=>o.position.copy(current));trailReady=true;}for(let j=streaks.length-1;j>0;j--)streaks[j].position.lerp(streaks[j-1].position,.55);streaks[0].position.lerp(current,.7);streaks.forEach((o,j)=>{o.visible=true;o.scale.setScalar(.56*(1-j/streaks.length));o.material.opacity=.25*(1-j/streaks.length)})}else{trailReady=false;streaks.forEach(o=>o.visible=false)}
 const focus=acting?sonic.position.clone().lerp(metal.position,.38):player.clone();const target=overhead?new T.Vector3(0,105,.01):new T.Vector3(focus.x-2,acting?6.8:8,focus.z+(acting?15:18));camera.position.lerp(target,1-Math.exp(-dt*7));camera.lookAt(overhead?0:focus.x,overhead?0:1.7+jumpY*.35,overhead?0:focus.z);
-r.render(scene,camera);requestAnimationFrame(frame)}camera.position.set(-7,8,18);requestAnimationFrame(frame);
+camera.fov=T.MathUtils.lerp(camera.fov,overhead?54:boosting&&!acting?66:acting?51:54,1-Math.exp(-dt*5));camera.updateProjectionMatrix();r.render(scene,camera);requestAnimationFrame(frame)}camera.position.set(-7,8,18);requestAnimationFrame(frame);
 </script></html>
