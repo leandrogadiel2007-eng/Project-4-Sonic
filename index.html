@@ -368,7 +368,7 @@ const rivalMoves={overdrive:{name:'Maximum Overdrive',duration:1.65,wind:.62,hit
 const rivalHUD=document.getElementById('metalState'),arenaInfo=document.getElementById('arenaInfo');
 const heatHUD=document.getElementById('heatHUD'),heatMeter=document.getElementById('heatMeter'),heatText=document.getElementById('heatText');
 const HEAT_COST={overdrive:18,plasma:16,spark:19,melee:13};
-const COOLING_TIME=1.5;
+const COOLING_TIME=2.5;
 function heatAfterAttack(heat,kind){return Math.min(100,heat+(HEAT_COST[kind]||0));}
 function showHeat(live){heatHUD.style.display=live?'flex':'none';heatMeter.value=rival.heat;heatText.textContent=rival.overheat>0?'ENFRIANDO '+rival.overheat.toFixed(1)+' s':'TEMP '+Math.round(rival.heat)+'%';}
 
