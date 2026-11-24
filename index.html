@@ -27,6 +27,18 @@ for(const obj of [...scene.children])if(!originalChildren.has(obj))architecture.
 const blue=mat(0x145bd9,.25),skin=mat(0xf2bd87,.05),shoe=mat(0xd21d32,.2),glove=mat(0xf0eeee,.1),robot=mat(0x285ab1,.85,.25),silver=mat(0xa7b8d0,.9,.25);
 function fighter(isRobot){let p=new T.Group();scene.add(p);const b=isRobot?robot:blue;const sphere=(x,y,z,sx,sy,sz,m)=>{let o=mesh(new T.SphereGeometry(1,24,16),m,x,y,z,p);o.scale.set(sx,sy,sz);return o};sphere(0,1.5,0,.55,.75,.48,b);sphere(0,2.65,0,.85,.8,.75,b);sphere(0,2.38,.57,.58,.32,.26,isRobot?black:skin);sphere(0,1.55,.43,.34,.38,.12,isRobot?yellow:skin);for(let s of [-1,1]){sphere(s*.3,2.83,.62,.27,.35,.16,isRobot?black:glove);sphere(s*.3,2.82,.77,.09,.19,.06,isRobot?red:mat(0x174c39));sphere(s*.65,1.45,0,.15,.48,.15,isRobot?silver:skin);sphere(s*.68,1.05,.08,.23,.24,.23,isRobot?silver:glove);sphere(s*.26,.67,0,.15,.55,.15,b);sphere(s*.28,.19,.22,.32,.19,.6,isRobot?silver:shoe);const ear=mesh(new T.ConeGeometry(.23,.65,12),b,s*.55,3.25,0,p);ear.rotation.z=-s*.2}for(let j=0;j<4;j++){let q=mesh(new T.ConeGeometry(.38,1.35,12),b,0,2.8-j*.35,-.6,p);q.rotation.x=-1.2-j*.12}return p}
 const sonic=fighter(false),metal=fighter(true);sonic.rotation.y=Math.PI/2;metal.rotation.y=-Math.PI/2;
+// Animation states for articulated placeholder characters; external GLB clips require retargeting.
+function animator(root,robot){
+ const visual=new T.Group();visual.name='body';for(const child of [...root.children])visual.add(child);root.add(visual);
+ const mixer=new T.AnimationMixer(visual),actions={};
+ const specs={idle:[1.2,.025,.02],run:[.35,.12,.16],hover:[1.4,.09,.04],homing:[.45,.22,1.2],spin:[.45,.08,6.283],boost:[.4,.07,.45],guard:[.45,.02,-.22],dodge:[.45,.12,.65],counter:[.45,.12,-.8],hit:[.35,.08,.35],defeat:[.7,0,1.5]};
+ for(const [name,[duration,bob,tilt]] of Object.entries(specs)){
+ const times=[0,duration/2,duration],track=new T.NumberKeyframeTrack('.position[y]',times,[0,bob,0]),rotation=new T.NumberKeyframeTrack('.rotation[x]',times,[0,tilt, name==='defeat'?tilt:0]);
+ actions[name]=mixer.clipAction(new T.AnimationClip(name,duration,[track,rotation]));
+ }
+ let active;return {mixer,play(name){const next=actions[name]||actions.idle;if(active===next)return;next.reset().play();if(active)active.crossFadeTo(next,.12,false);active=next;},update(dt){mixer.update(dt)}};
+}
+const sonicAnim=animator(sonic,false),metalAnim=animator(metal,true);
 let overhead=false;document.getElementById('cinema').onclick=()=>overhead=false;document.getElementById('overhead').onclick=()=>overhead=true;
 const sparks=new T.BufferGeometry(),arr=new Float32Array(240*3);for(let i=0;i<arr.length;i+=3){arr[i]=(Math.random()-.5)*88;arr[i+1]=Math.random()*28;arr[i+2]=(Math.random()-.5)*88}sparks.setAttribute('position',new T.BufferAttribute(arr,3));scene.add(new T.Points(sparks,new T.PointsMaterial({color:0xff4026,size:.055,transparent:true,opacity:.7})));
 function resize(){r.setSize(host.clientWidth,host.clientHeight);camera.aspect=host.clientWidth/host.clientHeight;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(host);resize();
@@ -39,5 +51,5 @@ movement.set(Number(held.has('d'))-Number(held.has('a')),0,Number(held.has('s'))
 const moving=movement.lengthSq()>0&&s.hp>0&&s.metal>0;if(moving){movement.normalize();player.addScaledVector(movement,dt*12);if(player.length()>41)player.setLength(41);heading=Math.atan2(movement.x,movement.z)}
 const enemy=new T.Vector3(5,0,0),toward=enemy.clone().sub(player);if(toward.lengthSq()>0)toward.normalize();sonic.position.copy(player).addScaledVector(toward,a*2);sonic.position.y=moving?Math.abs(Math.sin(t*.018))*.16:Math.sin(t*.004)*.035;sonic.rotation.y=a>0?Math.atan2(toward.x,toward.z):heading;
 metal.position.set(5-a*toward.x*2,.12+Math.sin(t*.005)*.08,-a*toward.z*2);metal.rotation.y=Math.atan2(player.x-metal.position.x,player.z-metal.position.z);sonic.visible=s.hp>0;metal.visible=s.metal>0;
-const target=overhead?new T.Vector3(0,105,.01):new T.Vector3(player.x-2,8,player.z+18);camera.position.lerp(target,1-Math.exp(-dt*7));camera.lookAt(overhead?0:player.x,overhead?0:1.7,overhead?0:player.z);r.render(scene,camera);requestAnimationFrame(frame)}camera.position.set(-7,8,18);requestAnimationFrame(frame);
+const target=overhead?new T.Vector3(0,105,.01):new T.Vector3(player.x-2,8,player.z+18);camera.position.lerp(target,1-Math.exp(-dt*7));camera.lookAt(overhead?0:player.x,overhead?0:1.7,overhead?0:player.z);sonicAnim.play(s.hp<=0?"defeat":a>0?s.last:moving?"run":"idle");metalAnim.play(s.metal<=0?"defeat":a>0?"counter":"hover");sonicAnim.update(dt);metalAnim.update(dt);r.render(scene,camera);requestAnimationFrame(frame)}camera.position.set(-7,8,18);requestAnimationFrame(frame);
 </script></html>
