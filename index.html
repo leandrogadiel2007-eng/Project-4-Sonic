@@ -334,8 +334,8 @@ let overhead=false;document.getElementById('cinema').onclick=()=>overhead=false;
 const sparks=new T.BufferGeometry(),arr=new Float32Array(240*3);for(let i=0;i<arr.length;i+=3){arr[i]=(Math.random()-.5)*88;arr[i+1]=Math.random()*28;arr[i+2]=(Math.random()-.5)*88}sparks.setAttribute('position',new T.BufferAttribute(arr,3));scene.add(new T.Points(sparks,new T.PointsMaterial({color:0xff4026,size:.055,transparent:true,opacity:.7})));
 function resize(){const width=host.clientWidth,height=host.clientHeight;if(!width||!height)return;r.setSize(width,height,false);camera.aspect=width/height;camera.updateProjectionMatrix()}new ResizeObserver(resize).observe(host);resize();
 const held=new Set(),player=new T.Vector3(-5,0,0),movement=new T.Vector3(),clock=new T.Clock();let lastTurn=0,heading=Math.PI/2,bank=0;const enemyPos=new T.Vector3(5,0,0);let jumpY=0,jumpV=0,jumpTime=0,landTime=0,jumpToken=0;const velocity=new T.Vector3();let momentum=0;const speedLabel=document.getElementById('speedLabel'),speedMeter=document.getElementById('speedMeter'),speedMode=document.getElementById('speedMode');
-function advanceMomentum(current,dt,driving,boost,airborne){const cap=boost?36:24;const rate=driving?(airborne?2.5:boost?14:5.5):-18;return Math.max(0,Math.min(cap,current+rate*dt));}
-function jump(){const s=window.arenaState();if((s.mode==='live'&&!s.started)||s.hp<=0||s.metal<=0||jumpY>.001||jumpV>0||(s.turn&&performance.now()-s.flash<s.duration))return;jumpV=12.4;jumpTime=0;landTime=0;jumpToken++;}document.getElementById('jump').addEventListener('click',jump);window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)){e.preventDefault();if(!e.repeat)jump();}});
+function advanceMomentum(current,dt,driving,boost,airborne){const cap=boost?36:24;const rate=driving?(airborne?3.5:boost?20:10):-18;const launch=driving&&!airborne?(boost?14:9):0;return Math.max(0,Math.min(cap,Math.max(launch,current+rate*dt)));}
+function jump(){const s=window.arenaState();if((s.mode==='live'&&!s.started)||s.hp<=0||s.metal<=0||jumpY>.001||jumpV>0||(s.turn&&performance.now()-s.flash<s.duration))return;jumpV=17.5;jumpTime=0;landTime=0;jumpToken++;}document.getElementById('jump').addEventListener('click',jump);window.addEventListener('keydown',e=>{if(e.code==='Space'&&!['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)){e.preventDefault();if(!e.repeat)jump();}});
 window.addEventListener('keydown',e=>{if(['INPUT','SELECT','TEXTAREA'].includes(e.target.tagName)||e.ctrlKey||e.metaKey||e.altKey)return;const k=e.key.toLowerCase();if(('wasd'.includes(k)&&k.length===1)||k==='shift'){e.preventDefault();held.add(k)}});
 window.addEventListener('keyup',e=>held.delete(e.key.toLowerCase()));window.addEventListener('blur',()=>held.clear());document.addEventListener('visibilitychange',()=>{if(document.hidden)held.clear()});
 document.getElementById('reset').addEventListener('click',()=>{player.set(-5,0,0);enemyPos.set(5,0,0);jumpY=jumpV=jumpTime=landTime=0;velocity.set(0,0,0);momentum=0;bank=0;heading=Math.PI/2;held.clear()});
@@ -489,7 +489,7 @@ else{
  momentum=advanceMomentum(momentum,dt,inputMoving,boosting,airborne);
  if(inputMoving)movement.multiplyScalar(Math.max(4,momentum));
  else movement.set(0,0,0);
- velocity.lerp(movement,1-Math.exp(-dt*(inputMoving?(airborne?3:9):(airborne?2.2:7))));
+ velocity.lerp(movement,1-Math.exp(-dt*(inputMoving?(airborne?4:13):(airborne?2.2:7))));
  player.addScaledVector(velocity,dt);
  if(player.length()>41){
   player.setLength(41);
